@@ -93,6 +93,7 @@ def prepare_evaluation():
     parser.add_argument("-tn", "--total_nodes", default=1, type=int, help="total number of nodes for training")
     parser.add_argument("-cn", "--current_node", default=0, type=int, help="rank of the current node")
     parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--out_path", type=str, required=True, help='output file to put metrics into')
     args = parser.parse_args()
 
     if args.dset1_feats == None and args.dset1_moments == None:
@@ -242,8 +243,14 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
         if local_rank == 0:
             metric_dict.update({"IS": dset2_kl_score, "Top1_acc": dset2_top1, "Top5_acc": dset2_top5})
             if load_dset1:
-                print("Inception score of dset1 ({num} images): {IS}".format(num=str(len(dset1)), IS=dset1_kl_score))
-            print("Inception score of dset2 ({num} images): {IS}".format(num=str(len(dset2)), IS=dset2_kl_score))
+                output = "Inception score of dset1 ({num} images): {IS}".format(num=str(len(dset1)), IS=dset1_kl_score)
+                print(output)
+                with open(args.out_path, 'a') as f:
+                    f.write(output)
+            output = "Inception score of dset2 ({num} images): {IS}\n".format(num=str(len(dset2)), IS=dset2_kl_score)
+            print(output)
+            with open(args.out_path, 'a') as f:
+                f.write(output)
 
     if "fid" in args.eval_metrics:
         if args.dset1_moments is None:
@@ -259,11 +266,15 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
         if local_rank == 0:
             metric_dict.update({"FID": fid_score})
             if args.dset1_moments is None:
-                print("FID between dset1 and dset2 (dset1: {num1} images, dset2: {num2} images): {fid}".\
-                      format(num1=str(len(dset1)), num2=str(len(dset2)), fid=fid_score))
+                output = "FID between dset1 and dset2 (dset1: {num1} images, dset2: {num2} images): {fid}".\
+                      format(num1=str(len(dset1)), num2=str(len(dset2)), fid=fid_score)
+                print(output)
             else:
-                print("FID between pre-calculated dset1 moments and dset2 (dset2: {num2} images): {fid}".\
-                      format(num2=str(len(dset2)), fid=fid_score))
+                output = "FID between pre-calculated dset1 moments and dset2 (dset2: {num2} images): {fid}".\
+                      format(num2=str(len(dset2)), fid=fid_score)
+                print(output)
+            with open(args.out_path, 'a') as f:
+                f.write(output)
 
     if "prdc" in args.eval_metrics:
         nearest_k = 5
@@ -278,14 +289,18 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
         prc, rec, dns, cvg = metrics["precision"], metrics["recall"], metrics["density"], metrics["coverage"]
         if local_rank == 0:
             metric_dict.update({"Improved_Precision": prc, "Improved_Recall": rec, "Density": dns, "Coverage": cvg})
-            print("Improved Precision between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {prc}".\
-                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), prc=prc))
-            print("Improved Recall between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {rec}".\
-                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), rec=rec))
-            print("Density between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {dns}".\
-                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), dns=dns))
-            print("Coverage between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {cvg}".\
-                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), cvg=cvg))
+            prc_out = "Improved Precision between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {prc}".\
+                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), prc=prc)
+            rec_out = "Improved Recall between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {rec}".\
+                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), rec=rec)
+            dns_out = "Density between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {dns}".\
+                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), dns=dns)
+            cvg_out = "Coverage between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {cvg}".\
+                format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), cvg=cvg)
+            output = prc_out +'\n' + rec_out + '\n' + dns_out + '\n' + cvg_out
+            print(output)
+            with open(args.out_path, 'a') as f:
+                f.write(output)
 
 
 if __name__ == "__main__":
